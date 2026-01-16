@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Марки автомобилей</title>
+</head>
+<body>
+
+<h1>Информация о марках автомобилей</h1>
+
+<h2>Добавить марку</h2>
+<form method="post" action="{% url 'brands:save_json' %}">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Сохранить в JSON</button>
+</form>
+
+<form method="post" action="{% url 'brands:save_xml' %}">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Сохранить в XML</button>
+</form>
+
+<hr>
+
+<h2>Загрузить файл JSON/XML</h2>
+<form method="post" enctype="multipart/form-data" action="{% url 'brands:upload_file' %}">
+    {% csrf_token %}
+    <input type="file" name="file" required>
+    <button type="submit">Загрузить</button>
+</form>
+
+<hr>
+
+<h2>Файлы на сервере</h2>
+
+{% if files %}
+    {% for item in parsed %}
+        <div style="border: 1px solid #ccc; padding: 10px; margin-bottom: 10px;">
+            <strong>{{ item.filename }}</strong> ({{ item.ext }})
+
+            {% if item.valid %}
+                <pre>{{ item.data|safe }}</pre>
+
+                {% if item.data.founded %}
+                    <p><b>Анализ:</b> возраст марки: {{ item.data.founded }} год основания</p>
+                {% endif %}
+            {% else %}
+                <p style="color:red;"><b>Ошибка чтения:</b> {{ item.error }}</p>
+            {% endif %}
+        </div>
+    {% endfor %}
+{% else %}
+    <p>Файлов пока нет.</p>
+{% endif %}
+
+
+</body>
+</html>
