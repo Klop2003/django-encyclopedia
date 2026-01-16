@@ -23,3 +23,8 @@ media/
 .vscode/
 .idea/
 .DS_Store
+
+# User data exports
+data/exports/*.json
+data/exports/*.xml
+
