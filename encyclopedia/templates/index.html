@@ -1,0 +1,29 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Онлайн-энциклопедия</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body class="{{ theme }}">
+
+<h1>Онлайн-энциклопедия</h1>
+
+<div class="theme-switch">
+    <a href="/set-theme/light/">Светлая тема</a> |
+    <a href="/set-theme/dark/">Тёмная тема</a>
+</div>
+
+<div class="articles">
+    {% for article in articles %}
+    <div class="card">
+        <h2>{{ article.title }}</h2>
+        <p>{{ article.text }}</p>
+        <img src="{% static 'images/' %}{{ article.image }}" alt="">
+    </div>
+    {% endfor %}
+</div>
+
+</body>
+</html>
