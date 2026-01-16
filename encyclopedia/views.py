@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from django.shortcuts import redirect
+from django.views.decorators.http import require_POST
 
 ARTICLES = [
     {
@@ -18,6 +19,13 @@ ARTICLES = [
         "image": "html.png"
     },
 ]
+
+@require_POST
+def save_settings(request):
+    theme = request.POST.get("theme", "light")
+    response = redirect("/")
+    response.set_cookie("theme", theme, max_age=60*60*24*30)
+    return response
 
 def index(request):
     theme = request.COOKIES.get("theme", "light")

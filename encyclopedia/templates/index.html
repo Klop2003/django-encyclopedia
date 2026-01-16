@@ -10,10 +10,18 @@
 
 <h1>Онлайн-энциклопедия</h1>
 
-<div class="theme-switch">
-    <a href="/set-theme/light/">Светлая тема</a> |
-    <a href="/set-theme/dark/">Тёмная тема</a>
-</div>
+<form class="theme-switch" method="post" action="{% url 'save_settings' %}">
+    {% csrf_token %}
+    <label>
+        <input type="radio" name="theme" value="light" {% if theme == "light" %}checked{% endif %}>
+        Светлая
+    </label>
+    <label>
+        <input type="radio" name="theme" value="dark" {% if theme == "dark" %}checked{% endif %}>
+        Тёмная
+    </label>
+    <button type="submit">Сохранить</button>
+</form>
 
 <div class="articles">
     {% for article in articles %}
