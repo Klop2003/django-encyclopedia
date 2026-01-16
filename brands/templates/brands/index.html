@@ -6,19 +6,29 @@
 </head>
 <body>
 
+{% if messages %}
+  <div>
+    {% for message in messages %}
+      <p><b>{{ message }}</b></p>
+    {% endfor %}
+  </div>
+{% endif %}
+
 <h1>Информация о марках автомобилей</h1>
 
-<h2>Добавить марку</h2>
-<form method="post" action="{% url 'brands:save_json' %}">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Сохранить в JSON</button>
-</form>
+<p>
+  <a href="?source=files">Показать данные из файлов</a> |
+  <a href="?source=db">Показать данные из базы данных</a>
+</p>
 
-<form method="post" action="{% url 'brands:save_xml' %}">
+<hr>
+
+<h2>Добавить марку</h2>
+
+<form method="post" action="{% url 'brands:save_brand' %}">
     {% csrf_token %}
     {{ form.as_p }}
-    <button type="submit">Сохранить в XML</button>
+    <button type="submit">Сохранить</button>
 </form>
 
 <hr>
@@ -32,28 +42,96 @@
 
 <hr>
 
-<h2>Файлы на сервере</h2>
+{% if source == "files" %}
 
-{% if files %}
+  <h2>Файлы на сервере</h2>
+
+  {% if files %}
     {% for item in parsed %}
-        <div style="border: 1px solid #ccc; padding: 10px; margin-bottom: 10px;">
-            <strong>{{ item.filename }}</strong> ({{ item.ext }})
-
-            {% if item.valid %}
-                <pre>{{ item.data|safe }}</pre>
-
-                {% if item.data.founded %}
-                    <p><b>Анализ:</b> возраст марки: {{ item.data.founded }} год основания</p>
-                {% endif %}
-            {% else %}
-                <p style="color:red;"><b>Ошибка чтения:</b> {{ item.error }}</p>
-            {% endif %}
-        </div>
+      <div style="border:1px solid #ccc; padding:10px; margin-bottom:10px;">
+        <strong>{{ item.filename }}</strong> ({{ item.ext }})
+        {% if item.valid %}
+          <pre>{{ item.data|safe }}</pre>
+        {% else %}
+          <p style="color:red;"><b>Ошибка:</b> {{ item.error }}</p>
+        {% endif %}
+      </div>
     {% endfor %}
-{% else %}
+  {% else %}
     <p>Файлов пока нет.</p>
-{% endif %}
+  {% endif %}
 
+{% else %}
+
+  <h2>Записи в базе данных</h2>
+
+  <div style="margin: 10px 0;">
+    <input id="searchInput" type="text" placeholder="Поиск по name, country, description">
+  </div>
+
+  {% if db_items %}
+    <table border="1" cellpadding="6" width="100%">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Марка</th>
+          <th>Страна</th>
+          <th>Год</th>
+          <th>Описание</th>
+        </tr>
+      </thead>
+      <tbody id="dbTbody">
+        {% for b in db_items %}
+          <tr>
+            <td>{{ b.id }}</td>
+            <td>{{ b.name }}</td>
+            <td>{{ b.country }}</td>
+            <td>{{ b.founded }}</td>
+            <td>{{ b.description }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>В базе данных пока нет записей.</p>
+  {% endif %}
+
+  <script>
+    const input = document.getElementById("searchInput");
+    const tbody = document.getElementById("dbTbody");
+
+    function renderRows(items) {
+      tbody.innerHTML = "";
+      if (!items.length) {
+        tbody.innerHTML = `<tr><td colspan="5">Ничего не найдено</td></tr>`;
+        return;
+      }
+      for (const b of items) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${b.id}</td>
+          <td>${b.name}</td>
+          <td>${b.country}</td>
+          <td>${b.founded}</td>
+          <td>${b.description}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    let timer = null;
+    input.addEventListener("input", () => {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        const q = input.value.trim();
+        const resp = await fetch("{% url 'brands:search_db' %}?q=" + encodeURIComponent(q));
+        const data = await resp.json();
+        renderRows(data.results);
+      }, 300);
+    });
+  </script>
+
+{% endif %}
 
 </body>
 </html>

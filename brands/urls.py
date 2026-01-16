@@ -5,7 +5,8 @@ app_name = "brands"
 
 urlpatterns = [
     path("", views.index, name="index"),
-    path("save-json/", views.save_json, name="save_json"),
-    path("save-xml/", views.save_xml, name="save_xml"),
+    path("save/", views.save_brand, name="save_brand"),
     path("upload/", views.upload_file, name="upload_file"),
+    path("api/search/", views.search_db, name="search_db"),
+
 ]
