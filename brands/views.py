@@ -3,22 +3,90 @@ import os
 import uuid
 import xml.etree.ElementTree as ET
 
-from django.http import JsonResponse
 from django.conf import settings
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from .models import Brand
-from django.db import IntegrityError
+from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 from django.db.models import Q
+from django.db import IntegrityError
+
+from .models import Brand
 from .forms import BrandForm
 
 
 DATA_DIR = os.path.join(settings.BASE_DIR, "data", "exports")
 
+
+# ==========================
+# Главная страница
+# ==========================
+def index(request):
+    form = BrandForm()
+    source = request.GET.get("source", "files")  # files | db
+
+    files = []
+    parsed = []
+    db_items = []
+
+    # ===== Чтение файлов =====
+    if source == "files":
+        files = get_all_files()
+        if files:
+            for fname in files:
+                ext = os.path.splitext(fname)[1].lower()
+                path = os.path.join(DATA_DIR, fname)
+
+                item = {
+                    "filename": fname,
+                    "ext": ext,
+                    "valid": True,
+                    "data": None,
+                    "error": None,
+                }
+
+                try:
+                    if ext == ".json":
+                        with open(path, "r", encoding="utf-8") as f:
+                            item["data"] = json.load(f)
+
+                    elif ext == ".xml":
+                        tree = ET.parse(path)
+                        root = tree.getroot()
+                        item["data"] = {child.tag: child.text for child in root}
+
+                    else:
+                        item["valid"] = False
+                        item["error"] = "Неизвестный формат"
+
+                except Exception as e:
+                    item["valid"] = False
+                    item["error"] = str(e)
+
+                parsed.append(item)
+
+    # ===== Чтение из БД =====
+    else:
+        db_items = Brand.objects.order_by("-created_at")
+
+    context = {
+        "form": form,
+        "source": source,
+        "files": files,
+        "parsed": parsed,
+        "db_items": db_items,
+    }
+
+    return render(request, "brands/index.html", context)
+
+
+# ==========================
+# Сохранение данных
+# ==========================
 def save_brand(request):
     if request.method == "POST":
         form = BrandForm(request.POST)
+
         if form.is_valid():
             data = form.cleaned_data
             save_to = data.pop("save_to")
@@ -62,63 +130,9 @@ def save_brand(request):
     return redirect("brands:index")
 
 
-def index(request):
-    form = BrandForm()
-
-    source = request.GET.get("source", "files")  # files | db
-
-    files = []
-    parsed = []
-    db_items = []
-
-    if source == "files":
-        files = get_all_files()
-        if files:
-            for fname in files:
-                ext = os.path.splitext(fname)[1].lower()
-                path = os.path.join(DATA_DIR, fname)
-
-                item = {
-                    "filename": fname,
-                    "ext": ext,
-                    "valid": True,
-                    "data": None,
-                    "error": None,
-                }
-
-                try:
-                    if ext == ".json":
-                        with open(path, "r", encoding="utf-8") as f:
-                            item["data"] = json.load(f)
-
-                    elif ext == ".xml":
-                        tree = ET.parse(path)
-                        root = tree.getroot()
-                        item["data"] = {child.tag: child.text for child in root}
-
-                    else:
-                        item["valid"] = False
-                        item["error"] = "Неизвестный формат"
-
-                except Exception as e:
-                    item["valid"] = False
-                    item["error"] = str(e)
-
-                parsed.append(item)
-
-    else:
-        # source == "db"
-        db_items = Brand.objects.order_by("-created_at")
-
-    context = {
-        "form": form,
-        "source": source,
-        "files": files,
-        "parsed": parsed,
-        "db_items": db_items,
-    }
-    return render(request, "brands/index.html", context)
-
+# ==========================
+# Загрузка файлов
+# ==========================
 def upload_file(request):
     if request.method == "POST" and request.FILES.get("file"):
         file = request.FILES["file"]
@@ -145,31 +159,64 @@ def upload_file(request):
     return redirect("brands:index")
 
 
-def get_all_files():
-    if not os.path.exists(DATA_DIR):
-        return []
+# ==========================
+# CRUD: редактирование
+# ==========================
+def edit_brand(request, pk):
+    brand = get_object_or_404(Brand, pk=pk)
 
-    files = []
-    for fname in os.listdir(DATA_DIR):
-        if fname.endswith(".json") or fname.endswith(".xml"):
-            files.append(fname)
+    if request.method == "POST":
+        form = BrandForm(request.POST)
+        if form.is_valid():
+            data = form.cleaned_data
+            data.pop("save_to", None)
 
-    return files
+            # Проверка дублей (кроме текущей записи)
+            exists = Brand.objects.filter(
+                name=data["name"],
+                country=data["country"],
+                founded=data["founded"],
+                description=data["description"]
+            ).exclude(id=pk).exists()
+
+            if exists:
+                messages.error(request, "Такая запись уже существует!")
+                return redirect("brands:edit_brand", pk=pk)
+
+            brand.name = data["name"]
+            brand.country = data["country"]
+            brand.founded = data["founded"]
+            brand.description = data["description"]
+            brand.save()
+
+            messages.success(request, "Запись успешно обновлена.")
+            return redirect("/brands/?source=db")
+
+    else:
+        form = BrandForm(initial={
+            "name": brand.name,
+            "country": brand.country,
+            "founded": brand.founded,
+            "description": brand.description,
+            "save_to": "db"
+        })
+
+    return render(request, "brands/edit.html", {"form": form, "brand": brand})
 
 
-def validate_file(filepath, ext):
-    try:
-        if ext == ".json":
-            with open(filepath, "r", encoding="utf-8") as f:
-                json.load(f)
+# ==========================
+# CRUD: удаление
+# ==========================
+def delete_brand(request, pk):
+    brand = get_object_or_404(Brand, pk=pk)
+    brand.delete()
+    messages.success(request, "Запись удалена.")
+    return redirect("/brands/?source=db")
 
-        if ext == ".xml":
-            ET.parse(filepath)
 
-        return True
-    except Exception:
-        return False
-
+# ==========================
+# AJAX поиск
+# ==========================
 @require_GET
 def search_db(request):
     q = (request.GET.get("q") or "").strip()
@@ -192,5 +239,29 @@ def search_db(request):
         }
         for b in qs[:50]
     ]
+
     return JsonResponse({"results": data})
 
+
+# ==========================
+# Работа с файлами
+# ==========================
+def get_all_files():
+    if not os.path.exists(DATA_DIR):
+        return []
+
+    return [f for f in os.listdir(DATA_DIR) if f.endswith(".json") or f.endswith(".xml")]
+
+
+def validate_file(filepath, ext):
+    try:
+        if ext == ".json":
+            with open(filepath, "r", encoding="utf-8") as f:
+                json.load(f)
+
+        elif ext == ".xml":
+            ET.parse(filepath)
+
+        return True
+    except Exception:
+        return False

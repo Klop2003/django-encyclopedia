@@ -69,32 +69,35 @@
     <input id="searchInput" type="text" placeholder="Поиск по name, country, description">
   </div>
 
-  {% if db_items %}
-    <table border="1" cellpadding="6" width="100%">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Марка</th>
-          <th>Страна</th>
-          <th>Год</th>
-          <th>Описание</th>
-        </tr>
-      </thead>
-      <tbody id="dbTbody">
-        {% for b in db_items %}
-          <tr>
-            <td>{{ b.id }}</td>
-            <td>{{ b.name }}</td>
-            <td>{{ b.country }}</td>
-            <td>{{ b.founded }}</td>
-            <td>{{ b.description }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  {% else %}
-    <p>В базе данных пока нет записей.</p>
-  {% endif %}
+ {% if db_items %}
+  <table border="1" cellpadding="6" width="100%">
+    <tr>
+      <th>ID</th>
+      <th>Марка</th>
+      <th>Страна</th>
+      <th>Год</th>
+      <th>Описание</th>
+      <th>Действия</th>
+    </tr>
+    {% for b in db_items %}
+      <tr>
+        <td>{{ b.id }}</td>
+        <td>{{ b.name }}</td>
+        <td>{{ b.country }}</td>
+        <td>{{ b.founded }}</td>
+        <td>{{ b.description }}</td>
+        <td>
+          <a href="{% url 'brands:edit_brand' b.id %}">Редактировать</a> |
+          <a href="{% url 'brands:delete_brand' b.id %}"
+             onclick="return confirm('Удалить запись?')">Удалить</a>
+        </td>
+      </tr>
+    {% endfor %}
+  </table>
+{% else %}
+  <p>В базе данных пока нет записей.</p>
+{% endif %}
+
 
   <script>
     const input = document.getElementById("searchInput");
